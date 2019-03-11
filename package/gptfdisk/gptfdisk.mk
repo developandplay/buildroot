@@ -4,8 +4,10 @@
 #
 ################################################################################
 
-GPTFDISK_VERSION = 1.0.3
-GPTFDISK_SITE = http://downloads.sourceforge.net/sourceforge/gptfdisk
+#GPTFDISK_VERSION = 1.0.3
+#GPTFDISK_SITE = http://downloads.sourceforge.net/sourceforge/gptfdisk
+GPTFDISK_VERSION = 3d6a15873f582803aa8ad3288b3e32d3daff9fde
+GPTFDISK_SITE = $(call github,sifive,gptfdisk,$(GPTFDISK_VERSION))
 GPTFDISK_LICENSE = GPL-2.0+
 GPTFDISK_LICENSE_FILES = COPYING
 

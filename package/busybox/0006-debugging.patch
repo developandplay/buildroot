@@ -1,0 +1,124 @@
+diff --git a/loginutils/getty.c b/loginutils/getty.c
+index 762d5c773..5319b212a 100644
+--- a/loginutils/getty.c
++++ b/loginutils/getty.c
+@@ -37,10 +37,11 @@
+ 
+ 
+ /* The following is used for understandable diagnostics */
++#define DEBUGGING
+ #ifdef DEBUGGING
+ static FILE *dbf;
+ # define DEBUGTERM "/dev/ttyp0"
+-# define debug(...) do { fprintf(dbf, __VA_ARGS__); fflush(dbf); } while (0)
++# define debug(...) do { printf(__VA_ARGS__); fflush_all(); } while (0)
+ #else
+ # define debug(...) ((void)0)
+ #endif
+@@ -443,6 +444,10 @@ static char *get_logname(void)
+ 	char c;
+ 
+ 	/* Flush pending input (esp. after parsing or switching the baud rate) */
++	while(true) {
++		debug("loop");
++	}
++	debug("usleep(100*1000);\n");
+ 	usleep(100*1000); /* 0.1 sec */
+ 	tcflush(STDIN_FILENO, TCIFLUSH);
+ 
+@@ -461,20 +466,27 @@ static char *get_logname(void)
+ 			/* Do not report trivial EINTR/EIO errors */
+ 			errno = EINTR; /* make read of 0 bytes be silent too */
+ 			if (read(STDIN_FILENO, &c, 1) < 1) {
++				debug("if (read(STDIN_FILENO, &c, 1) < 1) {\n");
+ 				finalize_tty_attrs();
+-				if (errno == EINTR || errno == EIO)
++				if (errno == EINTR || errno == EIO) {
++					debug("if (errno == EINTR || errno == EIO) {\n");
+ 					exit(EXIT_SUCCESS);
++				}
+ 				bb_perror_msg_and_die(bb_msg_read_error);
+ 			}
+ 
+ 			switch (c) {
+ 			case '\r':
++				debug("case '\\r':\n");
+ 			case '\n':
++				debug("case '\\n':\n");
+ 				*bp = '\0';
+ 				G.eol = c;
+ 				goto got_logname;
+ 			case CTL('H'):
++				debug("case CTL('H'):\n");
+ 			case 0x7f:
++				debug("case 0x7f:\n");
+ 				G.tty_attrs.c_cc[VERASE] = c;
+ 				if (bp > G.line_buf) {
+ 					full_write(STDOUT_FILENO, "\010 \010", 3);
+@@ -482,22 +494,27 @@ static char *get_logname(void)
+ 				}
+ 				break;
+ 			case CTL('U'):
++				debug("case CTL('U'):\n");
+ 				while (bp > G.line_buf) {
+ 					full_write(STDOUT_FILENO, "\010 \010", 3);
+ 					bp--;
+ 				}
+ 				break;
+ 			case CTL('C'):
++				debug("case CTL('C'):\n");
+ 			case CTL('D'):
++				debug("case CTL('D'):\n");
+ 				finalize_tty_attrs();
+ 				exit(EXIT_SUCCESS);
+ 			case '\0':
++				debug("case '\\0':\n");
+ 				/* BREAK. If we have speeds to try,
+ 				 * return NULL (will switch speeds and return here) */
+ 				if (G.numspeed > 1)
+ 					return NULL;
+ 				/* fall through and ignore it */
+ 			default:
++				debug("default:\n");
+ 				if ((unsigned char)c < ' ') {
+ 					/* ignore garbage characters */
+ 				} else if ((int)(bp - G.line_buf) < sizeof(G.line_buf) - 1) {
+@@ -611,7 +628,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
+ 	logmode = LOGMODE_BOTH;
+ 
+ #ifdef DEBUGGING
+-	dbf = xfopen_for_write(DEBUGTERM);
++	//dbf = xfopen_for_write(DEBUGTERM);
+ 	for (n = 1; argv[n]; n++) {
+ 		debug(argv[n]);
+ 		debug("\n");
+@@ -668,6 +685,9 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
+ 	if (option_mask32 & F_PARSE)
+ 		auto_baud();
+ 
++	debug("input speed after autobaud: %i\n", cfgetispeed(&G.tty_attrs));
++	debug("output speed after autobaud: %i\n", cfgetospeed(&G.tty_attrs));
++
+ 	/* Set the optional timer */
+ 	signal(SIGALRM, alarm_handler);
+ 	alarm(G.timeout); /* if 0, alarm is not set */
+@@ -693,12 +713,18 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
+ 			/* Read the login name */
+ 			debug("reading login name\n");
+ 			logname = get_logname();
+-			if (logname)
++			if (logname) {
++				debug("Got logname: %s", logname);
+ 				break;
++			}
++			debug("Failed to get logname.\n");
+ 			/* We are here only if G.numspeed > 1 */
+ 			baud_index = (baud_index + 1) % G.numspeed;
+ 			cfsetspeed(&G.tty_attrs, G.speeds[baud_index]);
+ 			set_tty_attrs();
++
++			debug("input speed after failed logname: %i\n", cfgetispeed(&G.tty_attrs));
++			debug("output speed after failed logname: %i\n", cfgetospeed(&G.tty_attrs));
+ 		}
+ 	}
+ 
